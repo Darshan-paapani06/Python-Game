@@ -24,7 +24,7 @@ from os import name
 
 import pygame
 pygame.init()
-# ---------- Configuration ----------
+
 
 WIDTH, HEIGHT = 800, 600
 FPS = 60
@@ -32,7 +32,7 @@ ARCHER_SPEED = 6
 ARROW_SPEED = 10
 TARGET_SPEED_BASE = 2
 TARGET_SPAWN_RATE = 1500
-# milliseconds between spawns at start MAX_LIVES = 3
+
 WIN=pygame.display.set_mode((WIDTH ,HEIGHT))
 pygame.display.set_caption("Archery survival")
 
@@ -45,7 +45,7 @@ GOLD = (255, 215, 0)
 BLUE = (50, 130, 200)
 
 
-# ---------- Game Objects ----------
+
 
 class Archer:
     def __init__(self, x, y):
@@ -287,3 +287,4 @@ def draw_pause(screen, score, lives):
 
 if __name__ == '__main__':
     main()
+
