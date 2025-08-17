@@ -1,0 +1,289 @@
+""" Archery Game (single-file) using pygame
+Controls:
+
+Left / Right arrows or A / D to move the archer
+
+Space to shoot an arrow
+
+Esc to quit
+
+Requirements:
+
+Python 3.8+
+
+pygame (install with: pip install pygame)
+
+Run: python archery_game.py
+This file draws everything with shapes (no external assets) so you can push it to GitHub easily.
+"""
+
+import math
+import random
+import sys
+from os import name
+
+import pygame
+pygame.init()
+# ---------- Configuration ----------
+
+WIDTH, HEIGHT = 800, 600
+FPS = 60
+ARCHER_SPEED = 6
+ARROW_SPEED = 10
+TARGET_SPEED_BASE = 2
+TARGET_SPAWN_RATE = 1500
+# milliseconds between spawns at start MAX_LIVES = 3
+WIN=pygame.display.set_mode((WIDTH ,HEIGHT))
+pygame.display.set_caption("Archery survival")
+
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (34, 177, 76)
+RED = (200, 30, 30)
+BROWN = (120, 80, 40)
+GOLD = (255, 215, 0)
+BLUE = (50, 130, 200)
+
+
+# ---------- Game Objects ----------
+
+class Archer:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.width = 40
+        self.height = 60
+        self.color = BROWN
+        self.angle = 90
+        # pointing upward
+
+
+    def move(self, dx):
+        self.x = max(20, min(WIDTH - 20, self.x + dx))
+
+
+    def draw(self, surf):
+    # draw a simple bow and stand # stand
+        pygame.draw.rect(surf, BROWN, (self.x - 6, self.y, 12, 30))
+    # body (triangle)
+        pygame.draw.polygon(surf, BROWN,
+                        [(self.x - 18, self.y + 30), (self.x + 18, self.y + 30), (self.x, self.y + 5)])  # bow (arc)
+        pygame.draw.arc(surf, GOLD, (self.x - 30, self.y - 10, 60, 80), math.radians(240), math.radians(300),4)
+                    # eye / decoration
+        pygame.draw.circle(surf, BLACK, (self.x, self.y + 8), 3)
+
+
+class Arrow:
+    def init(self, x, y):
+        self.x = x
+        self.y = y
+        self.vy = -ARROW_SPEED
+        self.width = 4
+        self.height = 18
+        self.color = BLACK
+        self.active = True
+
+    def update(self):
+        self.y += self.vy
+        if self.y < -20:
+            self.active = False
+
+    def draw(self, surf):
+        # simple arrow: shaft + triangular head
+        pygame.draw.rect(surf, self.color, (self.x - self.width // 2, self.y, self.width, self.height))
+        pygame.draw.polygon(surf, RED, [(self.x - 6, self.y), (self.x + 6, self.y), (self.x, self.y - 12)])
+
+    def get_rect(self):
+        return pygame.Rect(self.x - 6, self.y - 12, 12, self.height + 12)
+
+
+class Target:
+    def init(self, x, y, speed, size=30):
+        self.x = x
+        self.y = y
+        self.speed = speed
+        self.size = size
+        self.direction = random.choice([-1, 1])
+        self.color = BLUE
+        self.alive = True
+
+    def update(self):
+        self.x += self.speed * self.direction
+        if self.x < 20:
+            self.x = 20
+            self.direction *= -1
+        elif self.x > WIDTH - 20:
+            self.x = WIDTH - 20
+            self.direction *= -1
+
+    def draw(self, surf):
+        # concentric circles (bullseye)
+        pygame.draw.circle(surf, RED, (int(self.x), int(self.y)), self.size)
+        pygame.draw.circle(surf, WHITE, (int(self.x), int(self.y)), int(self.size * 0.66))
+        pygame.draw.circle(surf, RED, (int(self.x), int(self.y)), int(self.size * 0.33))
+        pygame.draw.circle(surf, GOLD, (int(self.x), int(self.y)), max(3, int(self.size * 0.1)))
+
+    def get_rect(self):
+        return pygame.Rect(self.x - self.size, self.y - self.size, self.size * 2, self.size * 2)
+
+
+def draw_text(surf, text, size, x, y, center=True):
+    font = pygame.font.SysFont('arial', size)
+    rendered = font.render(text, True, WHITE)
+    r = rendered.get_rect()
+    if center:
+        r.center = (x, y)
+    else:
+        r.topleft = (x, y)
+        surf.blit(rendered, r)
+
+
+# ---------- Main Game ----------
+
+def main(MAX_LIVES=None):
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption('Archery Survival')
+    clock = pygame.time.Clock()
+
+    archer = Archer(WIDTH // 2, HEIGHT - 120)
+    arrows = []
+    targets = []
+    score = 0
+    lives = MAX_LIVES
+    running = True
+    paused = False
+    last_spawn = pygame.time.get_ticks()
+    spawn_rate = TARGET_SPAWN_RATE
+    stage_start_time = pygame.time.get_ticks()
+    # simple UI colors
+    bg_color = (18, 24, 50)
+    while running:
+        dt = clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                if event.key == pygame.K_p:
+                    paused = not paused
+                if event.key == pygame.K_SPACE and not paused:
+                    # shoot
+                    arrows.append(Arrow(archer.x, archer.y - 30))
+        WIN.fill((255,255,255))
+        archer.draw(WIN)
+        if paused: draw_pause(screen, score, lives)
+        continue
+        # input handling
+        keys = pygame.key.get_pressed()
+        dx = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            dx = -ARCHER_SPEED
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            dx = ARCHER_SPEED
+        archer.move(dx)
+        # spawn targets over time, increase difficulty gradually
+        now = pygame.time.get_ticks()
+        elapsed = now - stage_start_time
+        # slowly decrease spawn_rate but clamp it
+        spawn_rate = max(450, TARGET_SPAWN_RATE - int(elapsed / 10))
+        if now - last_spawn > spawn_rate:
+            last_spawn = now
+            tx = random.randint(50, WIDTH - 50)
+            ty = random.randint(60, 200)
+            # speed increases with score
+            speed = TARGET_SPEED_BASE + (score // 10) * 0.2 + random.random() * 1.2
+            size = random.randint(20, 38)
+            targets.append(Target(tx, ty, speed, size))
+            # update arrows
+        for a in arrows:
+            a.update()
+        arrows = [a for a in arrows if a.active]
+        # update targets
+        for t in targets:
+            t.update()  # collisions: arrow -> target
+        for a in arrows:
+            ar = a.get_rect()
+            for t in targets:
+                tr = t.get_rect()
+                if tr.colliderect(ar) and t.alive:
+                    t.alive = False
+                    a.active = False
+                    # give points based on hit accuracy (closer to bullseye => more points)
+                    dx = abs(a.x - t.x)
+                    accuracy = max(0, 1 - dx / t.size)
+                    gained = 10 + int(40 * accuracy)
+                    score += gained
+                    # remove dead targets, and penalize if they reach bottom (rare here)
+        alive_targets = []
+        for t in targets:
+            if not t.alive:
+                continue
+            if t.y > HEIGHT - 100:
+                lives -= 1
+            else:
+                alive_targets.append(t)
+        targets = alive_targets
+        # if any arrows go past top they are already removed # occasional miss penalty: if targets exist for long time, reduce life # optional: not implemented to keep gameplay fair # check game over
+        if lives <= 0:
+            game_over_screen(screen, score)
+            # reset game if player restarts
+            score, lives = 0, MAX_LIVES
+            arrows.clear()
+            targets.clear()
+            stage_start_time = pygame.time.get_ticks()
+            last_spawn = pygame.time.get_ticks()
+            spawn_rate = TARGET_SPAWN_RATE
+            # draw everything
+            screen.fill(bg_color)
+            # decorative ground
+            pygame.draw.rect(screen, (40, 30, 20), (0, HEIGHT - 80, WIDTH, 80))
+            draw_text(screen, f'Score: {score}', 24, 100, 30)
+            draw_text(screen, f'Lives: {lives}', 24, WIDTH - 100, 30)
+            for t in targets:
+                t.draw(screen)
+            for a in arrows:
+                a.draw(screen)
+            archer.draw(screen)
+            # small tip
+            draw_text(screen, 'Left/Right to move • Space to shoot • P to pause', 18, WIDTH // 2, HEIGHT - 30)
+            pygame.display.flip()
+            pygame.quit()
+            sys.exit()
+
+
+def game_over_screen(screen, score):
+    clock = pygame.time.Clock()
+    showing = True
+    while showing:
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if ev.type == pygame.KEYDOWN:
+                if ev.key == pygame.K_RETURN:
+                    showing = False
+                    if ev.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+        screen.fill((10, 10, 10))
+        draw_text(screen, 'GAME OVER', 64, WIDTH // 2, HEIGHT // 2 - 80)
+        draw_text(screen, f'Score: {score}', 36, WIDTH // 2, HEIGHT // 2 - 20)
+        draw_text(screen, 'Press ENTER to play again or ESC to quit', 22, WIDTH // 2, HEIGHT // 2 + 40)
+        pygame.display.flip()
+        clock.tick(15)
+
+
+def draw_pause(screen, score, lives):
+    # small paused overlay
+    draw_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    draw_surface.fill((0, 0, 0, 160))
+    screen.blit(draw_surface, (0, 0))
+    draw_text(screen, 'PAUSED', 64, WIDTH // 2, HEIGHT // 2 - 20)
+    draw_text(screen, f'Score: {score} Lives: {lives}', 24, WIDTH // 2, HEIGHT // 2 + 30)
+    pygame.display.flip()
+
+
+if __name__ == '__main__':
+    main()
