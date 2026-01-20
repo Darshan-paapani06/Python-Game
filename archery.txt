@@ -8,9 +8,9 @@ Space to shoot an arrow
 Esc to quit
 
 Requirements:
-
-Python 3.8+
-
+ 
+Python 3.9+
+   
 pygame (install with: pip install pygame)
 
 Run: python archery_game.py
@@ -287,4 +287,5 @@ def draw_pause(screen, score, lives):
 
 if __name__ == '__main__':
     main()
+
 
